@@ -51,6 +51,9 @@ def sh(cmd):
 sh("nvidia-smi --query-gpu=name,memory.total --format=csv")
 if sh("pip install -q -r requirements.txt") != 0:
     sys.exit("pip install failed")
+# Kaggle ships torchao 0.10; peft 0.21 refuses to build LoRA / prompt tuning
+# when an old torchao is installed. We don't use torchao, so remove it.
+sh("pip uninstall -y -q torchao")
 sh("python -c \"import torch, transformers, peft, adapters; "
    "print('torch', torch.__version__, 'cuda', torch.cuda.is_available(), "
    "'transformers', transformers.__version__, 'peft', peft.__version__, "

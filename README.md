@@ -58,6 +58,8 @@ Each method has 16 final runs:
    !git -C peft-showdown remote set-url origin https://github.com/Anoop1230-tech/peft-showdown.git
    %cd peft-showdown
    !pip install -q -r requirements.txt
+   # Kaggle's torchao 0.10 makes peft refuse to build LoRA / prompt tuning; we don't use it
+   !pip uninstall -y -q torchao
    ```
 
 5. **Smoke test, before your first full launch.** Run one short run in a temporary cell
