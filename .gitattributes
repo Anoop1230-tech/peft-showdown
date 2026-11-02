@@ -1,0 +1,4 @@
+# Scripts run on Kaggle (Linux). Keep Linux line endings even on Windows
+# checkouts, otherwise bash fails with "syntax error near unexpected token $'in\r'".
+*.sh text eol=lf
+*.py text eol=lf
