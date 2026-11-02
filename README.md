@@ -7,3 +7,91 @@ We measure accuracy (and F1 on MRPC), trainable parameters, peak GPU memory, tra
 See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the full plan, experiment grid and division of work.
 
 **Team:** Deepak Mandal, Anoop Kumar, Chiranjeet Biswas, Byagari Praveen Kumar
+
+## Code layout
+
+```
+src/data.py      load GLUE, 10% dev split, 1k subset (same examples for every method)
+src/metrics.py   accuracy, plus F1 for MRPC
+src/models.py    build_model(method, num_labels)
+src/train.py     one run -> results/final/{method}_{task}_{regime}_seed{seed}.json
+src/results.py   results JSON format, validation, loading (docs/results_schema.md)
+scripts/run_method.sh   all 16 final runs for one method
+```
+
+One run (from the repo root, not from `src/`):
+
+```
+python -m src.train --method full_ft --task rte --regime 1k --seed 1
+```
+
+If the result JSON already exists the run is skipped. Add `--overwrite` to redo it.
+
+## How to run on Kaggle
+
+Each method has 16 final runs:
+- RTE and MRPC, full data and 1k, seeds 1, 2 and 3 (12 runs)
+- SST-2 1k, seeds 1, 2 and 3 (3 runs)
+- SST-2 full, seed 1 only (1 run, about an hour on a T4)
+
+### One-time setup
+
+1. Create a GitHub fine-grained token: GitHub → Settings → Developer settings →
+   Fine-grained tokens → Generate. Repository access: only `Anoop1230-tech/peft-showdown`,
+   permission **Contents: Read-only**.
+2. On Kaggle, verify your phone number (Settings), otherwise the notebook has no internet.
+
+### Each time
+
+1. Kaggle → Create → New Notebook.
+2. In the right panel, **Session options**:
+   - Accelerator: **GPU T4 x1**. Not T4 x2: two GPUs change the batch split and break the memory numbers.
+   - Internet: **On**.
+3. **Add-ons → Secrets**: add `GITHUB_TOKEN` with your token and tick it for this notebook.
+4. **Cell 1, setup.** Paste and run it:
+
+   ```python
+   from kaggle_secrets import UserSecretsClient
+   t = UserSecretsClient().get_secret("GITHUB_TOKEN")
+   !git clone -q https://{t}@github.com/Anoop1230-tech/peft-showdown.git
+   # remove the token from .git/config so it doesn't end up in the notebook output
+   !git -C peft-showdown remote set-url origin https://github.com/Anoop1230-tech/peft-showdown.git
+   %cd peft-showdown
+   !pip install -q -r requirements.txt
+   ```
+
+5. **Smoke test, before your first full launch.** Run one short run in a temporary cell
+   (RTE 1k, a few minutes on a T4; replace `full_ft` with your method):
+
+   ```python
+   !python -m src.train --method full_ft --task rte --regime 1k --seed 1
+   !python src/results.py results/final/*.json
+   ```
+
+   It should print `ok`, and `trainable params` should match your issue. Then delete
+   this cell; the commit in step 7 starts from a fresh machine and redoes the run anyway.
+6. **Cell 2, all runs** (replace `full_ft` with your method):
+
+   ```python
+   !bash scripts/run_method.sh full_ft
+   ```
+
+   Don't run it interactively, the commit in the next step does that.
+7. Click **Save Version → Save & Run All (Commit) → Save**. It keeps running with the
+   browser closed, for up to 12 hours. You can follow the log under the version's **Logs**.
+8. When it finishes, the end of the log shows `ok` for every result file and lists any
+   failed runs. Open the version → **Output** → download the files in
+   `peft-showdown/results/final/`.
+9. On your own machine:
+
+   ```
+   git pull
+   cp ~/Downloads/<method>_*.json results/final/
+   python src/results.py results/final/*.json
+   git add results/final/*.json
+   git commit -m "<method> results"
+   git push
+   ```
+
+If some runs failed or the session stopped, start a new version. Finished runs are
+skipped only if their JSONs are in the repo, so push what you have first.
