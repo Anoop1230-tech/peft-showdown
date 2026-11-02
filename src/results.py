@@ -182,10 +182,11 @@ def _version(pkg: str) -> str | None:
 
 
 def _detect_platform() -> str:
+    # check Kaggle first: Kaggle's image also sets COLAB_* variables
+    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ or os.path.isdir("/kaggle"):
+        return "kaggle"
     if "COLAB_RELEASE_TAG" in os.environ or "COLAB_GPU" in os.environ:
         return "colab"
-    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
-        return "kaggle"
     return "local"
 
 
@@ -211,6 +212,9 @@ def environment_info() -> dict[str, Any]:
 
 
 def _git_commit() -> str | None:
+    # set by scripts/kaggle_push.py, where the code runs without a .git folder
+    if os.environ.get("PEFT_GIT_COMMIT"):
+        return os.environ["PEFT_GIT_COMMIT"]
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
                              cwd=REPO_ROOT, capture_output=True, text=True,

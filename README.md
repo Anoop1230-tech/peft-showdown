@@ -95,3 +95,19 @@ Each method has 16 final runs:
 
 If some runs failed or the session stopped, start a new version. Finished runs are
 skipped only if their JSONs are in the repo, so push what you have first.
+
+### Alternative: launch from your own machine (no browser, no GitHub token)
+
+With the Kaggle CLI (`pip install kaggle`) and `~/.kaggle/kaggle.json` from
+kaggle.com/settings → API (phone verification needed):
+
+```
+python scripts/kaggle_push.py full_ft --smoke    # RTE 1k seed 1 only
+python scripts/kaggle_push.py full_ft            # all 16 runs
+kaggle kernels status <kaggle-user>/peft-showdown-full-ft
+kaggle kernels output <kaggle-user>/peft-showdown-full-ft -p out --file-pattern '\.json$'
+```
+
+It uploads your local repo files (including any result JSONs already there, so those
+runs are skipped) as a private Kaggle script on a GPU. Commit before launching real
+runs, otherwise `meta.git_commit` ends in `-dirty`.
