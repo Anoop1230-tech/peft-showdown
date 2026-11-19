@@ -277,9 +277,9 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 **Praveen (Prompt tuning + analysis)**
 - [x] `build_prompt_tuning` in `models.py`; verify only prompt embeddings + head train
 - [x] LR search for prompt tuning
-- [ ] 18 final runs
+- [x] 18 final runs
 - [ ] Ablation: virtual tokens ∈ {5, 20, 50, 100}, random vs text init
-- [ ] `analysis/` notebook: load all JSONs → unified table + all plots
+- [x] `analysis/` notebook: load all JSONs → unified table + all plots
 - [x] Report: Methods → Prompt tuning, Results section, slides
 
 ---
