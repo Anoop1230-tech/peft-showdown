@@ -269,8 +269,8 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 **Chiranjeet (Adapters + literature)**
 - [x] `build_adapter` in `models.py` using `adapters` + `AdapterTrainer`; make sure `train.py` handles it
 - [x] Verify base model is frozen and head is trainable
-- [ ] LR search for adapters
-- [ ] 18 final runs
+- [x] LR search for adapters
+- [x] 18 final runs
 - [ ] Ablation: Houlsby vs Pfeiffer, reduction factor ∈ {8, 16, 64}
 - [x] Report: Background (3 papers), Methods → Adapters
 
