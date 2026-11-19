@@ -250,21 +250,21 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 ### Each member's checklist
 
 **Deepak (Full FT + pipeline)**
-- [ ] Create repo, folder structure, `requirements.txt`
-- [ ] Write `data.py` (incl. identical 1k subsampling) and `metrics.py`
-- [ ] Write `train.py` with `--method` switch; test it end-to-end with full FT on RTE
-- [ ] LR search for full FT
-- [ ] 18 final runs (start SST-2 full-data runs early, they are the slowest)
+- [x] Create repo, folder structure, `requirements.txt`
+- [x] Write `data.py` (incl. identical 1k subsampling) and `metrics.py`
+- [x] Write `train.py` with `--method` switch; test it end-to-end with full FT on RTE
+- [x] LR search for full FT
+- [x] 18 final runs (start SST-2 full-data runs early, they are the slowest)
 - [ ] Ablation: freeze bottom-k layers, or BERT vs RoBERTa
-- [ ] Report: Methods → Full FT, Experimental setup
+- [x] Report: Methods → Full FT, Experimental setup
 
 **Anoop (LoRA + tracking)**
-- [ ] `build_lora` in `models.py`; verify trainable params ≈ 0.3M + head
-- [ ] Define results JSON schema and a shared run tracker (Google Sheet with all 72 runs)
-- [ ] LR search for LoRA
-- [ ] 18 final runs
+- [x] `build_lora` in `models.py`; verify trainable params ≈ 0.3M + head
+- [x] Define results JSON schema and a shared run tracker (Google Sheet with all 72 runs)
+- [x] LR search for LoRA
+- [x] 18 final runs
 - [ ] Ablation: LoRA rank r ∈ {1, 4, 8, 16, 64}
-- [ ] Report: Methods → LoRA, rank ablation results
+- [x] Report: Methods → LoRA, rank ablation results
 
 **Chiranjeet (Adapters + literature)**
 - [x] `build_adapter` in `models.py` using `adapters` + `AdapterTrainer`; make sure `train.py` handles it
