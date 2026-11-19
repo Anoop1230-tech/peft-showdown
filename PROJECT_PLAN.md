@@ -267,12 +267,12 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 - [ ] Report: Methods → LoRA, rank ablation results
 
 **Chiranjeet (Adapters + literature)**
-- [ ] `build_adapter` in `models.py` using `adapters` + `AdapterTrainer`; make sure `train.py` handles it
-- [ ] Verify base model is frozen and head is trainable
+- [x] `build_adapter` in `models.py` using `adapters` + `AdapterTrainer`; make sure `train.py` handles it
+- [x] Verify base model is frozen and head is trainable
 - [ ] LR search for adapters
 - [ ] 18 final runs
 - [ ] Ablation: Houlsby vs Pfeiffer, reduction factor ∈ {8, 16, 64}
-- [ ] Report: Background (3 papers), Methods → Adapters
+- [x] Report: Background (3 papers), Methods → Adapters
 
 **Praveen (Prompt tuning + analysis)**
 - [ ] `build_prompt_tuning` in `models.py`; verify only prompt embeddings + head train
