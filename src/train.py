@@ -32,7 +32,7 @@ from transformers import (AutoTokenizer, DataCollatorWithPadding, Trainer,
 from src.data import NUM_LABELS, load_task
 from src.metrics import compute_metrics
 from src.models import MODEL_NAME, METHOD_CONFIGS, build_model
-from src.results import (METHODS, REGIMES, SEEDS, TASKS, count_params,
+from src.results import (METHODS, REGIMES, SEEDS, STAGES, TASKS, count_params,
                          dir_size_mb, new_result, peak_gpu_mem_mb, result_path,
                          save_result)
 
@@ -84,6 +84,12 @@ def parse_args(argv=None):
     p.add_argument("--task", required=True, choices=TASKS)
     p.add_argument("--regime", required=True, choices=REGIMES)
     p.add_argument("--seed", required=True, type=int, choices=SEEDS)
+    p.add_argument("--stage", choices=STAGES, default="final",
+                   help="stage: final (default), lr_search, or ablation")
+    p.add_argument("--ablation-name", default=None,
+                   help="name of ablation parameter (e.g. reduction_factor, config)")
+    p.add_argument("--ablation-value", default=None,
+                   help="value of ablation parameter (e.g. 8, seq_bn)")
     p.add_argument("--owner", default=None,
                    help="defaults to the method's owner (meta.owner)")
     p.add_argument("--notes", default="", help="free text saved in meta.notes")
@@ -103,11 +109,34 @@ def run(args) -> None:
         "weight_decay": WEIGHT_DECAY,
         "fp16": fp16,
     }
+
+    ablation = None
+    method_config = dict(METHOD_CONFIGS[args.method])
+    model_kwargs = {}
+    if args.stage == "ablation" and args.ablation_name:
+        val = args.ablation_value
+        try:
+            val = int(val)
+        except ValueError:
+            try:
+                val = float(val)
+            except ValueError:
+                pass
+        ablation = {"name": args.ablation_name, "value": val}
+        if args.method == "adapter":
+            if args.ablation_name == "reduction_factor":
+                method_config["reduction_factor"] = val
+                model_kwargs["reduction_factor"] = val
+            elif args.ablation_name in ("config", "adapter_config"):
+                method_config["config"] = val
+                model_kwargs["config"] = val
+
     result = new_result(method=args.method, task=args.task, regime=args.regime,
-                        seed=args.seed, stage="final",
+                        seed=args.seed, stage=args.stage,
                         owner=args.owner or OWNERS[args.method],
                         hyperparams=hyperparams,
-                        method_config=METHOD_CONFIGS[args.method],
+                        method_config=method_config,
+                        ablation=ablation,
                         model_name=MODEL_NAME)
     result["meta"]["notes"] = args.notes
 
@@ -126,7 +155,7 @@ def run(args) -> None:
     result["data"].update(n_train=len(train), n_dev=len(dev),
                           n_eval=len(validation))
 
-    model = build_model(args.method, NUM_LABELS[args.task])
+    model = build_model(args.method, NUM_LABELS[args.task], **model_kwargs)
     result["efficiency"].update(count_params(model))
     print(f"trainable params: {result['efficiency']['trainable_params']:,} "
           f"({result['efficiency']['trainable_pct']}%)")
