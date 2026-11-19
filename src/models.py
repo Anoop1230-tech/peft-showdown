@@ -41,8 +41,33 @@ def build_lora(num_labels: int):
     return get_peft_model(model, cfg)
 
 
-def build_adapter(num_labels: int):
-    raise NotImplementedError("Adapter builder: Chiranjeet, issue #28")
+ADAPTER_CONFIG = {"config": "double_seq_bn", "reduction_factor": 16}
+
+
+def build_adapter(num_labels: int, config: str = "double_seq_bn",
+                  reduction_factor: int = 16):
+    """Bottleneck adapter (Houlsby et al., 2019) via AdapterHub `adapters`.
+
+    Inserts bottleneck MLPs after self-attention and feed-forward layers in
+    every transformer layer. The base model is frozen.
+    Trainable params: 1,789,056 adapter weights + 592,130 classification head = 2,381,186 (1.87%).
+    """
+    from adapters import AutoAdapterModel, DoubleSeqBnConfig, SeqBnConfig
+
+    model = AutoAdapterModel.from_pretrained(
+        MODEL_NAME, num_labels=num_labels)
+    if "default" in model.heads:
+        model.delete_head("default")
+    if config == "double_seq_bn":
+        adapter_cfg = DoubleSeqBnConfig(reduction_factor=reduction_factor)
+    elif config == "seq_bn":
+        adapter_cfg = SeqBnConfig(reduction_factor=reduction_factor)
+    else:
+        adapter_cfg = config
+    model.add_adapter("glue", config=adapter_cfg)
+    model.add_classification_head("glue", num_labels=num_labels)
+    model.train_adapter("glue")
+    return model
 
 
 def build_prompt_tuning(num_labels: int):
@@ -61,12 +86,12 @@ BUILDERS = {
 METHOD_CONFIGS = {
     "full_ft": {},
     "lora": LORA_CONFIG,
-    "adapter": {},
+    "adapter": ADAPTER_CONFIG,
     "prompt_tuning": {},
 }
 
 
-def build_model(method: str, num_labels: int):
+def build_model(method: str, num_labels: int, **kwargs):
     if method not in BUILDERS:
         raise ValueError(f"unknown method {method!r}, expected one of {list(BUILDERS)}")
-    return BUILDERS[method](num_labels)
+    return BUILDERS[method](num_labels, **kwargs)

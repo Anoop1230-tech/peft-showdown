@@ -58,8 +58,11 @@ def num_epochs(task: str, regime: str) -> int:
 def save_trainable_weights(model, method: str, out_dir: str) -> None:
     """Save what you'd ship for this task (see docs/results_schema.md)."""
     # full_ft: whole model. lora / prompt_tuning: PEFT weights + head.
-    # adapter: Chiranjeet adds model.save_adapter(out_dir, "glue") here (#28).
-    model.save_pretrained(out_dir)
+    # adapter: save adapter weights + head.
+    if method == "adapter":
+        model.save_adapter(out_dir, "glue")
+    else:
+        model.save_pretrained(out_dir)
 
 
 def best_epoch(trainer) -> float | None:
@@ -149,7 +152,13 @@ def run(args) -> None:
             report_to="none",
             seed=args.seed,
         )
-        trainer = Trainer(
+        if args.method == "adapter":
+            from adapters import AdapterTrainer
+            trainer_cls = AdapterTrainer
+        else:
+            trainer_cls = Trainer
+
+        trainer = trainer_cls(
             model=model,
             args=training_args,
             train_dataset=train,

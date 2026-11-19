@@ -23,3 +23,25 @@ Following the original paper, we apply LoRA to the **query and value projections
 We use a learning rate of 5e-4, in the range used by Hu et al. for `roberta-base`. LoRA needs a much larger learning rate than full fine-tuning, because B starts at zero and the update must grow from nothing. We implement LoRA with the Hugging Face `peft` library (`LoraConfig`, `task_type=SEQ_CLS`, which keeps the classification head trainable).
 
 Only the LoRA matrices and the head need to be stored per task. The saved checkpoint is **3.4 MB**, about 140 times smaller than a full fine-tuned model. Peak GPU memory is also lower than for full fine-tuning (1,937 MiB vs 3,264 MiB on RTE), and training is about 30% faster (112 s vs 158 s for RTE full data on a T4), because gradients and optimizer states are only kept for the 0.9M trainable parameters. The frozen weights still need activations stored for the backward pass, so the memory and time savings are much smaller than the 140× parameter saving.
+
+## Adapters
+
+Adapters (Houlsby et al., 2019) freeze the pretrained transformer weights and inject small feed-forward bottleneck modules directly inside each transformer layer. Unlike LoRA—which modifies the existing attention projection weights through additive low-rank matrices—adapters introduce new sequential sub-layers into the model graph.
+
+We follow the standard Houlsby architecture (`double_seq_bn`), which places **two bottleneck adapters per layer**:
+1. After the multi-head self-attention projection and before the residual add and layer norm.
+2. After the two-layer feed-forward network and before the second residual add and layer norm.
+
+Each adapter module consists of:
+- A down-projection matrix $W_{\text{down}} \in \mathbb{R}^{d \times m}$ reducing dimension from hidden size $d$ to bottleneck dimension $m$.
+- A non-linear activation function $f(\cdot)$ (Swish/GeLU).
+- An up-projection matrix $W_{\text{up}} \in \mathbb{R}^{m \times d}$ projecting back to dimension $d$.
+- An internal residual skip-connection around the bottleneck:
+
+$$h = x + f(x W_{\text{down}} + b_{\text{down}}) W_{\text{up}} + b_{\text{up}}$$
+
+With hidden size $d = 768$ and reduction factor 16, the bottleneck dimension is $m = 768 / 16 = 48$. Each bottleneck module contains $768 \times 48 + 48 = 36,912$ down-projection parameters and $48 \times 768 + 768 = 37,632$ up-projection parameters (total 74,544 parameters per adapter). With two adapters per layer across all 12 transformer layers, this yields **1,789,056 adapter parameters**. Adding the classification head (592,130 parameters) results in **2,381,186 trainable parameters (1.87% of the 127.0M total parameters in the adapted model)**.
+
+We train adapters using a learning rate of 3e-4, as recommended by Houlsby et al. and the AdapterHub benchmarks. Because bottleneck adapters are not supported in Hugging Face's `peft` library, we use AdapterHub's `adapters` library (`AutoAdapterModel`, `DoubleSeqBnConfig`, and `AdapterTrainer`).
+
+At inference time, only the trained adapter weights and classification head need to be distributed per task. The checkpoint size on disk is **9.1 MB**, approximately 52× smaller than a full fine-tuning checkpoint (475.5 MB), enabling efficient modular multi-task deployment while sharing a single frozen copy of `roberta-base`.
