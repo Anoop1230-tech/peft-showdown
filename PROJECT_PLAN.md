@@ -313,11 +313,11 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 
 ## 8. Final deliverables
 
-- [ ] GitHub repo with code, configs, and `results/` JSONs
-- [ ] Unified comparison table (full data + 1k)
-- [ ] Plots: accuracy vs params, full vs 1k, memory, time, ablations
-- [ ] Written report (with citations to [1], [2], [3])
-- [ ] Presentation slides
+- [x] GitHub repo with code, configs, and `results/` JSONs
+- [x] Unified comparison table (full data + 1k)
+- [x] Plots: accuracy vs params, full vs 1k, memory, time, ablations
+- [x] Written report (with citations to [1], [2], [3])
+- [x] Presentation slides
 
 ## References
 
