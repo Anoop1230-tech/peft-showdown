@@ -45,3 +45,21 @@ With hidden size $d = 768$ and reduction factor 16, the bottleneck dimension is 
 We train adapters using a learning rate of 3e-4, as recommended by Houlsby et al. and the AdapterHub benchmarks. Because bottleneck adapters are not supported in Hugging Face's `peft` library, we use AdapterHub's `adapters` library (`AutoAdapterModel`, `DoubleSeqBnConfig`, and `AdapterTrainer`).
 
 At inference time, only the trained adapter weights and classification head need to be distributed per task. The checkpoint size on disk is **9.1 MB**, approximately 52× smaller than a full fine-tuning checkpoint (475.5 MB), enabling efficient modular multi-task deployment while sharing a single frozen copy of `roberta-base`.
+
+## Prompt tuning
+
+Prompt tuning (Lester et al., 2021) freezes the entirety of the pretrained transformer and prepends a small sequence of $p$ continuous, learnable virtual token embeddings directly to the input representation:
+
+$$X_{\text{prompt}} = [P_1, P_2, \dots, P_p; E(x_1), E(x_2), \dots, E(x_n)]$$
+
+where $P \in \mathbb{R}^{p \times d}$ are the only model parameters updated alongside the classification head. The input embedding layer, all 12 self-attention layers, and feed-forward layers remain completely frozen.
+
+We adopt standard prompt tuning settings with **$p = 20$ virtual tokens** initialized randomly (`PromptTuningInit.RANDOM`) from a normal distribution. With hidden size $d = 768$, the virtual prompt comprises $20 \times 768 = 15,360$ parameters. Combined with the classification head (592,130 parameters), this results in **607,490 trainable parameters (0.48% of the 125.3M total parameters)**. Over 97% of the trainable parameters reside in the classification head itself, making prompt tuning the most parameter-lean adaptation strategy in our benchmark.
+
+We use a learning rate of **1e-2** (0.01), approximately 500× larger than full fine-tuning. As shown by Lester et al., soft prompt embeddings require large gradient steps because they must learn task-guiding trajectories in embedding space from scratch while propagating through a completely static transformer backbone. We implement prompt tuning using Hugging Face's `peft` library (`PromptTuningConfig`, `task_type=SEQ_CLS`).
+
+The saved checkpoint per task is **2.3 MB**, about 200× smaller than a full fine-tuning model. Because only 15k prompt weights receive gradients through the backbone, training memory and compute overhead are minimal.
+
+### Scale-dependence and expectations on `roberta-base`
+
+Lester et al. demonstrated that prompt tuning exhibits strong scale-dependence: while it matches full fine-tuning on massive 11-billion parameter models (T5-XXL), it lags significantly on smaller models (~100M–300M parameters). Because `roberta-base` possesses only 125M parameters, the model lacks the excess capacity needed to steer complex reasoning purely through 20 prompt tokens without adjusting internal attention weights. Consequently, we expect prompt tuning to be the least accurate of the four adaptation methods on GLUE. In our report, this is analyzed as empirical confirmation of Lester et al.'s scaling law rather than a defect in the implementation.

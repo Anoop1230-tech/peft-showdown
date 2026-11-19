@@ -70,8 +70,32 @@ def build_adapter(num_labels: int, config: str = "double_seq_bn",
     return model
 
 
-def build_prompt_tuning(num_labels: int):
-    raise NotImplementedError("Prompt tuning builder: Praveen, issue #30")
+PROMPT_TUNING_CONFIG = {
+    "num_virtual_tokens": 20,
+    "prompt_tuning_init": "RANDOM",
+}
+
+
+def build_prompt_tuning(num_labels: int, num_virtual_tokens: int = 20,
+                        prompt_tuning_init: str = "RANDOM"):
+    """Prompt tuning (Lester et al., 2021) with soft virtual token embeddings.
+
+    Prepends learnable continuous embedding vectors to the input sequence.
+    The pretrained base model is frozen. Only the prompt embeddings (15,360)
+    and the classifier head (592,130) are trained, totaling 607,490 params (0.48%).
+    """
+    from peft import PromptTuningConfig, PromptTuningInit, TaskType, get_peft_model
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_NAME, num_labels=num_labels)
+    init_mode = (PromptTuningInit.RANDOM if prompt_tuning_init == "RANDOM"
+                 else PromptTuningInit.TEXT)
+    cfg = PromptTuningConfig(
+        task_type=TaskType.SEQ_CLS,
+        num_virtual_tokens=num_virtual_tokens,
+        prompt_tuning_init=init_mode,
+    )
+    return get_peft_model(model, cfg)
 
 
 BUILDERS = {
@@ -87,7 +111,7 @@ METHOD_CONFIGS = {
     "full_ft": {},
     "lora": LORA_CONFIG,
     "adapter": ADAPTER_CONFIG,
-    "prompt_tuning": {},
+    "prompt_tuning": PROMPT_TUNING_CONFIG,
 }
 
 

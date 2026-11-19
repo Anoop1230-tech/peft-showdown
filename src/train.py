@@ -130,6 +130,13 @@ def run(args) -> None:
             elif args.ablation_name in ("config", "adapter_config"):
                 method_config["config"] = val
                 model_kwargs["config"] = val
+        elif args.method == "prompt_tuning":
+            if args.ablation_name in ("num_virtual_tokens", "n_tokens", "virtual_tokens"):
+                method_config["num_virtual_tokens"] = val
+                model_kwargs["num_virtual_tokens"] = val
+            elif args.ablation_name in ("init", "prompt_tuning_init"):
+                method_config["prompt_tuning_init"] = str(val)
+                model_kwargs["prompt_tuning_init"] = str(val)
 
     result = new_result(method=args.method, task=args.task, regime=args.regime,
                         seed=args.seed, stage=args.stage,
