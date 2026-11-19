@@ -41,8 +41,31 @@ def build_lora(num_labels: int):
     return get_peft_model(model, cfg)
 
 
+ADAPTER_NAME = "glue"
+ADAPTER_CONFIG = {"config": "double_seq_bn", "reduction_factor": 16}
+
+
 def build_adapter(num_labels: int):
-    raise NotImplementedError("Adapter builder: Chiranjeet, issue #28")
+    """Houlsby bottleneck adapters (Houlsby et al., 2019) via AdapterHub.
+
+    HF PEFT has no Houlsby adapters, so this uses the `adapters` library.
+    double_seq_bn puts a bottleneck (768 -> 48 -> 768, reduction factor 16)
+    after both the attention and the feed-forward sublayer of all 12 layers.
+    train_adapter() freezes RoBERTa and leaves the adapters and the
+    classification head trainable. The head is a 2-layer ClassificationHead,
+    the same shape as RoBERTa's own (592,130 params).
+
+    Train with adapters.AdapterTrainer (see src/train.py).
+    """
+    from adapters import AutoAdapterModel, DoubleSeqBnConfig
+
+    model = AutoAdapterModel.from_pretrained(MODEL_NAME)
+    model.add_adapter(ADAPTER_NAME, config=DoubleSeqBnConfig(
+        reduction_factor=ADAPTER_CONFIG["reduction_factor"]))
+    model.add_classification_head(ADAPTER_NAME, num_labels=num_labels)
+    model.train_adapter(ADAPTER_NAME)
+    model.set_active_adapters(ADAPTER_NAME)
+    return model
 
 
 def build_prompt_tuning(num_labels: int):
@@ -61,7 +84,7 @@ BUILDERS = {
 METHOD_CONFIGS = {
     "full_ft": {},
     "lora": LORA_CONFIG,
-    "adapter": {},
+    "adapter": ADAPTER_CONFIG,
     "prompt_tuning": {},
 }
 

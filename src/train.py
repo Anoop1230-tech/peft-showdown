@@ -31,7 +31,7 @@ from transformers import (AutoTokenizer, DataCollatorWithPadding, Trainer,
 
 from src.data import NUM_LABELS, load_task
 from src.metrics import compute_metrics
-from src.models import MODEL_NAME, METHOD_CONFIGS, build_model
+from src.models import ADAPTER_NAME, MODEL_NAME, METHOD_CONFIGS, build_model
 from src.results import (METHODS, REGIMES, SEEDS, TASKS, count_params,
                          dir_size_mb, new_result, peak_gpu_mem_mb, result_path,
                          save_result)
@@ -58,8 +58,11 @@ def num_epochs(task: str, regime: str) -> int:
 def save_trainable_weights(model, method: str, out_dir: str) -> None:
     """Save what you'd ship for this task (see docs/results_schema.md)."""
     # full_ft: whole model. lora / prompt_tuning: PEFT weights + head.
-    # adapter: Chiranjeet adds model.save_adapter(out_dir, "glue") here (#28).
-    model.save_pretrained(out_dir)
+    # adapter: the adapter + its classification head (save_adapter saves both).
+    if method == "adapter":
+        model.save_adapter(out_dir, ADAPTER_NAME, with_head=True)
+    else:
+        model.save_pretrained(out_dir)
 
 
 def best_epoch(trainer) -> float | None:
@@ -149,7 +152,12 @@ def run(args) -> None:
             report_to="none",
             seed=args.seed,
         )
-        trainer = Trainer(
+        if args.method == "adapter":
+            from adapters import AdapterTrainer  # lazy: only adapter runs need it
+            TrainerCls = AdapterTrainer
+        else:
+            TrainerCls = Trainer
+        trainer = TrainerCls(
             model=model,
             args=training_args,
             train_dataset=train,
