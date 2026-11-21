@@ -16,28 +16,45 @@ from transformers import AutoModelForSequenceClassification
 MODEL_NAME = "roberta-base"
 
 
-def build_full_ft(num_labels: int):
-    """Full fine-tuning: every weight is trainable."""
-    return AutoModelForSequenceClassification.from_pretrained(
+def build_full_ft(num_labels: int, frozen_layers: int = 0):
+    """Full fine-tuning: every weight is trainable.
+
+    frozen_layers > 0 is the partial-FT ablation: the embeddings and the
+    bottom `frozen_layers` transformer layers are frozen.
+    """
+    model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=num_labels)
+    if frozen_layers > 0:
+        for p in model.roberta.embeddings.parameters():
+            p.requires_grad = False
+        for layer in model.roberta.encoder.layer[:frozen_layers]:
+            for p in layer.parameters():
+                p.requires_grad = False
+    return model
 
 
 LORA_CONFIG = {"r": 8, "lora_alpha": 16, "lora_dropout": 0.1,
                "target_modules": ["query", "value"]}
 
 
-def build_lora(num_labels: int):
+def build_lora(num_labels: int, r: int = 8):
     """LoRA (Hu et al., 2022) on the query and value projections.
 
     The base model is frozen. task_type=SEQ_CLS makes PEFT keep the
     classifier head trainable (modules_to_save), so trainable params are
     LoRA A/B matrices (294,912) + head (592,130) = 887,042.
+
+    For the rank ablation, lora_alpha is kept at 2 * r so the scaling
+    alpha / r stays 2 for every rank.
     """
     from peft import LoraConfig, TaskType, get_peft_model
 
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=num_labels)
-    cfg = LoraConfig(task_type=TaskType.SEQ_CLS, **LORA_CONFIG)
+    lora_cfg = dict(LORA_CONFIG)
+    if r != LORA_CONFIG["r"]:
+        lora_cfg.update(r=r, lora_alpha=2 * r)
+    cfg = LoraConfig(task_type=TaskType.SEQ_CLS, **lora_cfg)
     return get_peft_model(model, cfg)
 
 
@@ -70,6 +87,9 @@ def build_adapter(num_labels: int, config: str = "double_seq_bn",
     return model
 
 
+# used for the random-vs-text init ablation
+PROMPT_INIT_TEXT = "Classify the sentiment or relation of the following text:"
+
 PROMPT_TUNING_CONFIG = {
     "num_virtual_tokens": 20,
     "prompt_tuning_init": "RANDOM",
@@ -88,12 +108,17 @@ def build_prompt_tuning(num_labels: int, num_virtual_tokens: int = 20,
 
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=num_labels)
-    init_mode = (PromptTuningInit.RANDOM if prompt_tuning_init == "RANDOM"
-                 else PromptTuningInit.TEXT)
+    if prompt_tuning_init == "RANDOM":
+        extra = {"prompt_tuning_init": PromptTuningInit.RANDOM}
+    else:
+        # initialise the prompt from the embeddings of a short text
+        extra = {"prompt_tuning_init": PromptTuningInit.TEXT,
+                 "prompt_tuning_init_text": PROMPT_INIT_TEXT,
+                 "tokenizer_name_or_path": MODEL_NAME}
     cfg = PromptTuningConfig(
         task_type=TaskType.SEQ_CLS,
         num_virtual_tokens=num_virtual_tokens,
-        prompt_tuning_init=init_mode,
+        **extra,
     )
     return get_peft_model(model, cfg)
 

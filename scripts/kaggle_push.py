@@ -2,6 +2,8 @@
 
     python scripts/kaggle_push.py full_ft --smoke   # one run: RTE 1k seed 1
     python scripts/kaggle_push.py full_ft           # all 16 runs (run_method.sh)
+    python scripts/kaggle_push.py --extra lr        # LR search (run_extra.sh)
+    python scripts/kaggle_push.py --extra ablation  # ablations (run_extra.sh)
 
 Needs the Kaggle CLI and ~/.kaggle/kaggle.json (kaggle.com/settings -> API).
 The repo is private, so instead of cloning from GitHub on Kaggle, this packs
@@ -78,12 +80,16 @@ def kaggle_username() -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("method", choices=METHODS)
+    p.add_argument("method", nargs="?", choices=METHODS)
+    p.add_argument("--extra", choices=("lr", "ablation", "check"),
+                   help="run scripts/run_extra.sh <part> instead of one method")
     p.add_argument("--smoke", action="store_true",
                    help="only RTE 1k seed 1, to check that everything works")
     p.add_argument("--no-push", action="store_true",
                    help="write the kernel folder and print its path, don't push")
     args = p.parse_args()
+    if not args.method and not args.extra:
+        p.error("give a method or --extra")
 
     commit = git("rev-parse", "--short", "HEAD")
     if git("status", "--porcelain"):
@@ -100,7 +106,10 @@ def main() -> None:
     tarball = buf.getvalue()
     code = base64.b64encode(tarball).decode()
 
-    if args.smoke:
+    if args.extra:
+        cmds = [f"bash scripts/run_extra.sh {args.extra}"]
+        slug = f"peft-showdown-extra-{args.extra}"
+    elif args.smoke:
         cmds = [f"python -m src.train --method {args.method} --task rte "
                 f"--regime 1k --seed 1 --overwrite",
                 "python src/results.py results/final/*.json"]

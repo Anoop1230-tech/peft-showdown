@@ -36,7 +36,8 @@ from src.results import (METHODS, REGIMES, SEEDS, STAGES, TASKS, count_params,
                          dir_size_mb, new_result, peak_gpu_mem_mb, result_path,
                          save_result)
 
-# Fixed settings, same for every method (issue #24). No LR search.
+# Learning rates used for all final runs. Chosen up front from the papers;
+# the LR search (stage lr_search, --lr) checks them afterwards on our dev split.
 LEARNING_RATES = {"full_ft": 2e-5, "lora": 5e-4, "adapter": 3e-4,
                   "prompt_tuning": 1e-2}
 BATCH_SIZE = 32
@@ -86,6 +87,8 @@ def parse_args(argv=None):
     p.add_argument("--seed", required=True, type=int, choices=SEEDS)
     p.add_argument("--stage", choices=STAGES, default="final",
                    help="stage: final (default), lr_search, or ablation")
+    p.add_argument("--lr", type=float, default=None,
+                   help="learning rate for --stage lr_search (default: the method's final LR)")
     p.add_argument("--ablation-name", default=None,
                    help="name of ablation parameter (e.g. reduction_factor, config)")
     p.add_argument("--ablation-value", default=None,
@@ -101,7 +104,8 @@ def parse_args(argv=None):
 def run(args) -> None:
     fp16 = torch.cuda.is_available()  # fp16 needs a GPU
     hyperparams = {
-        "learning_rate": LEARNING_RATES[args.method],
+        "learning_rate": (args.lr if args.stage == "lr_search" and args.lr
+                          else LEARNING_RATES[args.method]),
         "epochs": num_epochs(args.task, args.regime),
         "batch_size": BATCH_SIZE,
         "max_length": MAX_LENGTH,
@@ -123,7 +127,13 @@ def run(args) -> None:
             except ValueError:
                 pass
         ablation = {"name": args.ablation_name, "value": val}
-        if args.method == "adapter":
+        if args.method == "full_ft" and args.ablation_name == "frozen_layers":
+            method_config["frozen_layers"] = val
+            model_kwargs["frozen_layers"] = val
+        elif args.method == "lora" and args.ablation_name == "lora_rank":
+            method_config.update(r=val, lora_alpha=2 * val)
+            model_kwargs["r"] = val
+        elif args.method == "adapter":
             if args.ablation_name == "reduction_factor":
                 method_config["reduction_factor"] = val
                 model_kwargs["reduction_factor"] = val
@@ -137,6 +147,8 @@ def run(args) -> None:
             elif args.ablation_name in ("init", "prompt_tuning_init"):
                 method_config["prompt_tuning_init"] = str(val)
                 model_kwargs["prompt_tuning_init"] = str(val)
+        if not model_kwargs:
+            raise SystemExit(f"unknown ablation {args.ablation_name!r} for {args.method}")
 
     result = new_result(method=args.method, task=args.task, regime=args.regime,
                         seed=args.seed, stage=args.stage,
