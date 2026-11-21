@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "run_id": "lora_rte_full_lora_rank-16_seed2",
+  "stage": "ablation",
+  "method": "lora",
+  "task": "rte",
+  "regime": "full",
+  "seed": 2,
+  "model_name": "roberta-base",
+  "ablation": {
+    "name": "lora_rank",
+    "value": 16
+  },
+  "hyperparams": {
+    "learning_rate": 0.0005,
+    "epochs": 10,
+    "batch_size": 32,
+    "max_length": 128,
+    "warmup_ratio": 0.06,
+    "weight_decay": 0.01,
+    "fp16": true
+  },
+  "method_config": {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.1,
+    "target_modules": [
+      "query",
+      "value"
+    ]
+  },
+  "data": {
+    "n_train": 2241,
+    "n_dev": 249,
+    "n_eval": 277
+  },
+  "metrics": {
+    "eval_split": "validation",
+    "accuracy": 0.7436823104693141,
+    "f1": null,
+    "dev_accuracy": 0.7188755020080321,
+    "dev_f1": null,
+    "best_epoch": 5.0
+  },
+  "efficiency": {
+    "trainable_params": 1181954,
+    "total_params": 125829124,
+    "trainable_pct": 0.9393,
+    "peak_gpu_mem_mb": 1942.6,
+    "train_time_s": 109.7,
+    "checkpoint_size_mb": 4.522
+  },
+  "environment": {
+    "gpu_name": "Tesla T4",
+    "platform": "kaggle",
+    "python": "3.13.16",
+    "torch": "2.11.0+cu130",
+    "transformers": "4.57.6",
+    "peft": "0.21.2",
+    "adapters": "1.3.0",
+    "datasets": "5.0.1"
+  },
+  "meta": {
+    "owner": "anoop",
+    "timestamp_utc": "2026-11-21T14:43:01+00:00",
+    "git_commit": "c95b1b3",
+    "notes": ""
+  }
+}

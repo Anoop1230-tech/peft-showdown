@@ -253,32 +253,32 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 - [x] Create repo, folder structure, `requirements.txt`
 - [x] Write `data.py` (incl. identical 1k subsampling) and `metrics.py`
 - [x] Write `train.py` with `--method` switch; test it end-to-end with full FT on RTE
-- [x] LR search for full FT
+- [x] LR search for full FT (run after the final runs; confirmed 2e-5, see `analysis/lr_search_table.md`)
 - [x] 18 final runs (start SST-2 full-data runs early, they are the slowest)
-- [ ] Ablation: freeze bottom-k layers, or BERT vs RoBERTa
+- [x] Ablation: freeze bottom k layers (k = 3, 6, 9; RTE, 3 seeds)
 - [x] Report: Methods → Full FT, Experimental setup
 
 **Anoop (LoRA + tracking)**
 - [x] `build_lora` in `models.py`; verify trainable params ≈ 0.3M + head
 - [x] Define results JSON schema and a shared run tracker (Google Sheet with all 72 runs)
-- [x] LR search for LoRA
+- [x] LR search for LoRA (confirmed 5e-4)
 - [x] 18 final runs
-- [ ] Ablation: LoRA rank r ∈ {1, 4, 8, 16, 64}
+- [x] Ablation: LoRA rank r ∈ {1, 4, 8, 16, 64}
 - [x] Report: Methods → LoRA, rank ablation results
 
 **Chiranjeet (Adapters + literature)**
 - [x] `build_adapter` in `models.py` using `adapters` + `AdapterTrainer`; make sure `train.py` handles it
 - [x] Verify base model is frozen and head is trainable
-- [x] LR search for adapters
+- [x] LR search for adapters (confirmed 3e-4)
 - [x] 18 final runs
-- [ ] Ablation: Houlsby vs Pfeiffer, reduction factor ∈ {8, 16, 64}
+- [x] Ablation: Houlsby vs Pfeiffer, reduction factor ∈ {8, 16, 64}
 - [x] Report: Background (3 papers), Methods → Adapters
 
 **Praveen (Prompt tuning + analysis)**
 - [x] `build_prompt_tuning` in `models.py`; verify only prompt embeddings + head train
-- [x] LR search for prompt tuning
+- [x] LR search for prompt tuning (confirmed 1e-2)
 - [x] 18 final runs
-- [ ] Ablation: virtual tokens ∈ {5, 20, 50, 100}, random vs text init
+- [x] Ablation: virtual tokens ∈ {5, 20, 50, 100}, random vs text init
 - [x] `analysis/` notebook: load all JSONs → unified table + all plots
 - [x] Report: Methods → Prompt tuning, Results section, slides
 
@@ -312,6 +312,11 @@ Why this split is fair: full FT is the most expensive in GPU time, so the shared
 ---
 
 ## 8. Final deliverables
+
+Deviations from this plan, all stated in the report (`report/final_report.md`, Limitations):
+- 64 main runs instead of 72: SST-2 full data uses seed 1 only (about 1 h per run).
+- The LR search was run after the final runs (`scripts/run_extra.sh lr`); for every method it confirmed the LR the final runs used.
+- Ablations are on RTE full data with 3 seeds (`scripts/run_extra.sh ablation`, results in `results/ablation/`, table in `analysis/ablation_table.md`).
 
 - [x] GitHub repo with code, configs, and `results/` JSONs
 - [x] Unified comparison table (full data + 1k)

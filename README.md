@@ -17,7 +17,22 @@ src/models.py    build_model(method, num_labels)
 src/train.py     one run -> results/final/{method}_{task}_{regime}_seed{seed}.json
 src/results.py   results JSON format, validation, loading (docs/results_schema.md)
 scripts/run_method.sh   all 16 final runs for one method
+scripts/run_extra.sh    LR search (lr) and ablations (ablation), see below
+analysis/analysis.ipynb     main tables and plots (results/final/)
+analysis/extra_analysis.py  LR-search and ablation tables + plot
+configs/hyperparams.yaml    record of every setting used
+report/final_report.md      project report (PDF and DOCX next to it)
 ```
+
+Results: `analysis/unified_table.md`, `analysis/low_data_table.md`,
+`analysis/lr_search_table.md`, `analysis/ablation_table.md`, figures in `analysis/figures/`.
+Report: `report/final_report.pdf`. Slides: `report/slides.md`.
+
+LR search and ablations (16 + 42 runs on Kaggle, about 40 + 90 min):
+
+    python scripts/kaggle_push.py --extra lr
+    python scripts/kaggle_push.py --extra ablation
+    python analysis/extra_analysis.py
 
 One run (from the repo root, not from `src/`):
 

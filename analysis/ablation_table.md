@@ -1,0 +1,24 @@
+Ablations on RTE, full training data, GLUE validation accuracy x100, mean ± std over seeds 1-3. One setting changed at a time; the default row is the final run. LoRA keeps alpha = 2r. Tesla T4, fp16, batch 32.
+
+| Method        | Ablation                    | Setting   | Default   |   Seeds | RTE val acc   | RTE dev acc   |   Trainable params |   Peak mem (MiB) |   Time (s) |
+|:--------------|:----------------------------|:----------|:----------|--------:|:--------------|:--------------|-------------------:|-----------------:|-----------:|
+| Full FT       | frozen bottom layers        | 0         | yes       |       3 | 76.1 ± 2.2    | 77.8 ± 4.4    |        124,647,170 |             3264 |        158 |
+| Full FT       | frozen bottom layers        | 3         |           |       3 | 75.2 ± 0.8    | 77.1 ± 5.2    |         64,382,978 |             2349 |        116 |
+| Full FT       | frozen bottom layers        | 6         |           |       3 | 73.0 ± 1.8    | 73.0 ± 4.9    |         43,119,362 |             1754 |         95 |
+| Full FT       | frozen bottom layers        | 9         |           |       3 | 65.3 ± 1.7    | 66.4 ± 5.0    |         21,855,746 |             1158 |         73 |
+| LoRA          | rank r                      | 1         |           |       3 | 70.0 ± 1.4    | 73.2 ± 5.5    |            628,994 |             1932 |        109 |
+| LoRA          | rank r                      | 4         |           |       3 | 72.0 ± 3.7    | 74.4 ± 4.7    |            739,586 |             1934 |        110 |
+| LoRA          | rank r                      | 8         | yes       |       3 | 74.0 ± 2.0    | 76.2 ± 6.0    |            887,042 |             1937 |        112 |
+| LoRA          | rank r                      | 16        |           |       3 | 74.4 ± 0.0    | 76.0 ± 5.5    |          1,181,954 |             1943 |        110 |
+| LoRA          | rank r                      | 64        |           |       3 | 60.0 ± 10.3   | 60.5 ± 13.8   |          2,951,426 |             1975 |        110 |
+| Adapters      | reduction factor (Houlsby)  | 8         |           |       3 | 77.6 ± 1.9    | 76.7 ± 4.3    |          4,151,810 |             1926 |        107 |
+| Adapters      | reduction factor (Houlsby)  | 16        | yes       |       3 | 76.3 ± 1.8    | 78.7 ± 6.5    |          2,381,186 |             1884 |        106 |
+| Adapters      | reduction factor (Houlsby)  | 64        |           |       3 | 70.2 ± 2.9    | 74.8 ± 4.1    |          1,053,218 |             1853 |        105 |
+| Adapters      | adapter type (reduction 16) | Houlsby   | yes       |       3 | 76.3 ± 1.8    | 78.7 ± 6.5    |          2,381,186 |             1884 |        106 |
+| Adapters      | adapter type (reduction 16) | Pfeiffer  |           |       3 | 74.1 ± 3.6    | 76.8 ± 6.7    |          1,486,658 |             1880 |        104 |
+| Prompt tuning | virtual tokens              | 5         |           |       3 | 52.3 ± 2.5    | 54.5 ± 2.1    |            595,970 |             1796 |        105 |
+| Prompt tuning | virtual tokens              | 20        | yes       |       3 | 56.1 ± 2.6    | 56.4 ± 1.3    |            607,490 |             1923 |        117 |
+| Prompt tuning | virtual tokens              | 50        |           |       3 | 53.2 ± 4.2    | 56.5 ± 0.9    |            630,530 |             2180 |        135 |
+| Prompt tuning | virtual tokens              | 100       |           |       3 | 52.6 ± 1.6    | 54.1 ± 0.6    |            668,930 |             2626 |        175 |
+| Prompt tuning | prompt init (20 tokens)     | random    | yes       |       3 | 56.1 ± 2.6    | 56.4 ± 1.3    |            607,490 |             1923 |        117 |
+| Prompt tuning | prompt init (20 tokens)     | text      |           |       3 | 53.8 ± 1.6    | 54.9 ± 0.6    |            607,490 |             1923 |        111 |
