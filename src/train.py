@@ -106,7 +106,8 @@ def parse_args(argv=None):
 
 
 def run(args) -> None:
-    fp16 = torch.cuda.is_available()  # fp16 needs a GPU
+    # Enable fp16 mixed precision on CUDA to halve activation memory and leverage T4 Tensor Cores
+    fp16 = torch.cuda.is_available()
     hyperparams = {
         "learning_rate": (args.lr if args.stage == "lr_search" and args.lr
                           else LEARNING_RATES[args.method]),
@@ -121,6 +122,7 @@ def run(args) -> None:
     ablation = None
     method_config = dict(METHOD_CONFIGS[args.method])
     model_kwargs = {}
+    # When running stage="ablation", dynamically override default hyperparameters (e.g. rank, reduction factor)
     if args.stage == "ablation" and args.ablation_name:
         val = args.ablation_value
         try:
@@ -191,6 +193,7 @@ def run(args) -> None:
             num_train_epochs=hyperparams["epochs"],
             learning_rate=hyperparams["learning_rate"],
             per_device_train_batch_size=BATCH_SIZE,
+            # Evaluation batch size can safely be doubled (64 vs 32) since gradients and optimizer states are omitted
             per_device_eval_batch_size=EVAL_BATCH_SIZE,
             warmup_ratio=WARMUP_RATIO,
             weight_decay=WEIGHT_DECAY,
@@ -231,8 +234,10 @@ def run(args) -> None:
         train_time = time.time() - t0
         peak_mem = peak_gpu_mem_mb()
 
-        dev_m = trainer.evaluate(dev)                # best checkpoint, our 10% dev split
-        val_m = trainer.evaluate(validation)         # GLUE validation, the reported number
+        # Evaluate on both our held-out dev split (used for model selection)
+        # and the official GLUE validation split (reported in final tables)
+        dev_m = trainer.evaluate(dev)
+        val_m = trainer.evaluate(validation)
 
         result["metrics"].update(
             accuracy=val_m["eval_accuracy"],

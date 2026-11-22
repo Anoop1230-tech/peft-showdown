@@ -27,8 +27,8 @@ import pandas as pd
 
 from src.results import load_results
 
-# defaults of the final runs, read from their JSONs (src.train / src.models
-# need torch, which the analysis machine may not have)
+# Defaults of the final runs, read from their JSONs so this script can run
+# on any CPU analysis machine without needing PyTorch or a GPU installed.
 _final = load_results("final", root=ROOT / "results")
 LEARNING_RATES = _final.groupby("method")["hyperparams.learning_rate"].first().to_dict()
 METHOD_CONFIGS = {"lora": {"r": int(_final.loc[_final["method"] == "lora", "method_config.r"].iloc[0])},
@@ -68,6 +68,7 @@ def pm(s: pd.Series) -> str:
 
 
 def lr_search(final: pd.DataFrame) -> None:
+    # Summarize dev split accuracies across candidate learning rates to justify final LR choices
     lr = load_results("lr_search", root=ROOT / "results")
     base = final[(final["regime"] == "full") & (final["seed"] == 1)
                  & final["task"].isin(TASK_NAMES)]
@@ -104,6 +105,7 @@ def lr_search(final: pd.DataFrame) -> None:
 
 
 def ablations(final: pd.DataFrame) -> None:
+    # Compile ablation results on RTE across 3 seeds and generate multi-panel errorbar plots
     abl = load_results("ablation", root=ROOT / "results")
     rte_final = final[(final["task"] == "rte") & (final["regime"] == "full")]
     rows, panels = [], []

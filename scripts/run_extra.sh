@@ -23,6 +23,7 @@ PYTHON="${PYTHON:-python}"
 RUNS=()
 case "$PART" in
   lr)
+    # Evaluate candidate learning rates on seed 1 (RTE and MRPC full data) to determine best default
     for task in rte mrpc; do
       for lr in 1e-5 3e-5;  do RUNS+=("--method full_ft --task $task --stage lr_search --lr $lr --seed 1"); done
       for lr in 1e-4 3e-4;  do RUNS+=("--method lora --task $task --stage lr_search --lr $lr --seed 1"); done
@@ -31,6 +32,7 @@ case "$PART" in
     done
     ;;
   ablation)
+    # Ablation grid on RTE full data across 3 seeds to test parameter sensitivity
     ABL=(
       "full_ft frozen_layers 3" "full_ft frozen_layers 6" "full_ft frozen_layers 9"
       "lora lora_rank 1" "lora lora_rank 4" "lora lora_rank 16" "lora lora_rank 64"
@@ -46,6 +48,7 @@ case "$PART" in
     done
     ;;
   check)
+    # Sanity check: instantiate all models and verify parameter counts match expectations without training
     exec "$PYTHON" - <<'EOF'
 from src.models import build_model
 from src.results import count_params
