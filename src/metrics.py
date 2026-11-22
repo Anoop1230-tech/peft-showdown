@@ -17,11 +17,13 @@ def compute_metrics(task: str):
 
     def _compute(eval_pred):
         logits, labels = eval_pred
-        # some models (e.g. AdapterHub heads) return a tuple; logits come first
+        # AdapterTrainer returns (logits, ...) tuple while HF Trainer returns logits array.
         if isinstance(logits, (tuple, list)):
             logits = logits[0]
         preds = np.argmax(logits, axis=-1)
         out = {"accuracy": float(accuracy_score(labels, preds))}
+
+        # MRPC has class imbalance (68/32), so official GLUE evaluation reports F1 along with accuracy.
         if task in F1_TASKS:
             out["f1"] = float(f1_score(labels, preds))
         return out

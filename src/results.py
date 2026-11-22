@@ -144,6 +144,7 @@ def count_params(model) -> dict[str, Any]:
     total_params is every parameter in the model as built (frozen base +
     any added LoRA / adapter / prompt parameters + head).
     """
+    # Counting requires_grad ensures head weights (592k) are counted across all methods
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())
     return {
@@ -155,6 +156,7 @@ def count_params(model) -> dict[str, Any]:
 
 def dir_size_mb(path: str | os.PathLike) -> float:
     """Size of a saved checkpoint directory (or single file) in MiB."""
+    # Measures the deployment storage footprint of task-specific weights
     p = Path(path)
     if p.is_file():
         return round(p.stat().st_size / MB, 3)

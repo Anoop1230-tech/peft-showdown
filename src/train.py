@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import os
 
-# Use a single GPU. On a 2-GPU machine (Kaggle "T4 x2") the Trainer would
-# otherwise split each batch across both GPUs and the memory numbers break.
+# Pin to single GPU on multi-GPU nodes to avoid batch splitting and distorted memory stats.
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
@@ -36,8 +35,9 @@ from src.results import (METHODS, REGIMES, SEEDS, STAGES, TASKS, count_params,
                          dir_size_mb, new_result, peak_gpu_mem_mb, result_path,
                          save_result)
 
-# Learning rates used for all final runs. Chosen up front from the papers;
-# the LR search (stage lr_search, --lr) checks them afterwards on our dev split.
+# Optimal learning rates per method (chosen from papers and verified via dev split LR search):
+# Prompt tuning requires a much higher LR (1e-2) because the backbone is frozen
+# and only the soft prompt embeddings are receiving gradient updates.
 LEARNING_RATES = {"full_ft": 2e-5, "lora": 5e-4, "adapter": 3e-4,
                   "prompt_tuning": 1e-2}
 BATCH_SIZE = 32
@@ -51,6 +51,9 @@ OWNERS = {"full_ft": "deepak", "lora": "anoop", "adapter": "chiranjeet",
 
 
 def num_epochs(task: str, regime: str) -> int:
+    # SST-2 is large (~67k train examples) so 3 epochs provides over 6,000 steps.
+    # Smaller datasets (MRPC ~3.7k, RTE ~2.5k) need 10 epochs to converge.
+    # Low-data (1k examples) regime needs 20 epochs to ensure enough gradient steps.
     if regime == "1k":
         return 20
     return 3 if task == "sst2" else 10
@@ -58,8 +61,8 @@ def num_epochs(task: str, regime: str) -> int:
 
 def save_trainable_weights(model, method: str, out_dir: str) -> None:
     """Save what you'd ship for this task (see docs/results_schema.md)."""
-    # full_ft: whole model. lora / prompt_tuning: PEFT weights + head.
-    # adapter: save adapter weights + head.
+    # AdapterHub saves adapter modules + classification head via save_adapter,
+    # while full_ft and PEFT (LoRA / prompt tuning) save through save_pretrained.
     if method == "adapter":
         model.save_adapter(out_dir, "glue")
     else:
@@ -68,6 +71,7 @@ def save_trainable_weights(model, method: str, out_dir: str) -> None:
 
 def best_epoch(trainer) -> float | None:
     """Epoch of the checkpoint picked by load_best_model_at_end."""
+    # Find which epoch produced the best dev score by matching the checkpoint step in log history
     ckpt = trainer.state.best_model_checkpoint
     if not ckpt:
         return None
@@ -160,6 +164,7 @@ def run(args) -> None:
     result["meta"]["notes"] = args.notes
 
     out_path = result_path(result)
+    # Skip runs that have already been saved to allow resuming interrupted jobs without re-running
     if out_path.exists() and not args.overwrite:
         print(f"skip: {out_path} already exists")
         return
@@ -193,9 +198,11 @@ def run(args) -> None:
             eval_strategy="epoch",
             save_strategy="epoch",
             logging_strategy="epoch",
+            # Automatically load best checkpoint according to dev accuracy, avoiding overfitting
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
             greater_is_better=True,
+            # Keep only 1 checkpoint on disk to conserve local storage during multi-run batches
             save_total_limit=1,
             report_to="none",
             seed=args.seed,
@@ -215,6 +222,7 @@ def run(args) -> None:
             compute_metrics=compute_metrics(args.task),
         )
 
+        # Reset memory counter right before training so we measure actual backprop/optimizer peak.
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
@@ -234,6 +242,7 @@ def run(args) -> None:
             best_epoch=best_epoch(trainer),
         )
 
+        # Save only the trainable parameters to measure actual deployment checkpoint size.
         ckpt_dir = os.path.join(work_dir, "weights")
         save_trainable_weights(trainer.model, args.method, ckpt_dir)
         result["efficiency"].update(
@@ -242,7 +251,7 @@ def run(args) -> None:
             checkpoint_size_mb=dir_size_mb(ckpt_dir),
         )
     finally:
-        # Kaggle has ~20 GB of disk; never keep checkpoints around
+        # Clean up temporary training checkpoints to avoid running out of disk space on Kaggle.
         shutil.rmtree(work_dir, ignore_errors=True)
 
     path = save_result(result, overwrite=args.overwrite)

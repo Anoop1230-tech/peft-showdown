@@ -15,7 +15,9 @@ from datasets import load_dataset
 
 DATASET = "nyu-mll/glue"
 
-# text columns for each task (second one is None for single-sentence tasks)
+# Map task names to their text columns in GLUE.
+# Single-sentence tasks (SST-2) use sentence text only;
+# sentence-pair tasks (MRPC, RTE) pass premise and hypothesis pairs.
 TASK_KEYS = {
     "sst2": ("sentence", None),
     "mrpc": ("sentence1", "sentence2"),
@@ -38,8 +40,12 @@ def load_task(task: str, tokenizer, regime: str = "full", seed: int = 42,
     ds = load_dataset(DATASET, task)
     k1, k2 = TASK_KEYS[task]
 
+    # Hold out 10% of train as our dev set for checkpoint selection,
+    # keeping the official validation split untouched for unbiased final evaluation.
     split = ds["train"].train_test_split(test_size=0.1, seed=seed)
     train, dev = split["train"], split["test"]
+
+    # In 1k low-data regime, subsample using seed so all methods see the exact same subset.
     if regime == "1k":
         train = train.shuffle(seed=seed).select(range(LOW_DATA_SIZE))
 
@@ -47,8 +53,7 @@ def load_task(task: str, tokenizer, regime: str = "full", seed: int = 42,
         return tokenizer(batch[k1], batch[k2] if k2 else None,
                          truncation=True, max_length=max_len)
 
-    # keep only input_ids / attention_mask / label so the collator and every
-    # model type (HF, PEFT, AdapterHub) get the same inputs
+    # Remove raw text/metadata columns so batches pass cleanly into all model collators.
     drop = [c for c in ds["train"].column_names if c != "label"]
 
     def prep(d):

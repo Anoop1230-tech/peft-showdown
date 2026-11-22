@@ -97,6 +97,8 @@ def main() -> None:
         print("note: uncommitted changes are uploaded, results get "
               f"git_commit={commit}", file=sys.stderr)
 
+    # Pack all tracked and newly staged files into an in-memory tarball
+    # and encode as base64 to create a self-contained runner script on Kaggle.
     files = git("ls-files", "--cached", "--others", "--exclude-standard").splitlines()
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -110,6 +112,8 @@ def main() -> None:
         cmds = [f"bash scripts/run_extra.sh {args.extra}"]
         slug = f"peft-showdown-extra-{args.extra}"
     elif args.smoke:
+        # In smoke test mode, run only RTE 1k seed 1 to verify memory and metrics
+        # before committing to the full 16-run batch.
         cmds = [f"python -m src.train --method {args.method} --task rte "
                 f"--regime 1k --seed 1 --overwrite",
                 "python src/results.py results/final/*.json"]

@@ -20,6 +20,8 @@ esac
 cd "$(dirname "$0")/.." || exit 1   # repo root, needed for `python -m src.train`
 PYTHON="${PYTHON:-python}"
 
+# Order runs: 1k subsets first for quick iteration, then RTE/MRPC full data,
+# and SST-2 full last (which takes ~45-60 mins on a single T4 GPU).
 RUNS=()
 for task in rte mrpc sst2; do
   for seed in 1 2 3; do RUNS+=("$task 1k $seed"); done
@@ -27,7 +29,9 @@ done
 for task in rte mrpc; do
   for seed in 1 2 3; do RUNS+=("$task full $seed"); done
 done
-RUNS+=("sst2 full 1")   # one seed only, see issue #25 / report limitations
+# SST-2 full data is evaluated on seed 1 only due to computational budget
+# and because 67k examples has significantly lower variance than smaller datasets.
+RUNS+=("sst2 full 1")
 
 FAILED=()
 start=$(date +%s)
@@ -37,6 +41,7 @@ for run in "${RUNS[@]}"; do
   read -r task regime seed <<< "$run"
   echo
   echo "[$i/${#RUNS[@]}] $METHOD $task $regime seed$seed  ($(date '+%H:%M:%S'))"
+  # Log failed runs but continue execution so remaining experiments finish
   if ! "$PYTHON" -m src.train --method "$METHOD" --task "$task" \
          --regime "$regime" --seed "$seed"; then
     echo "FAILED: $METHOD $task $regime seed$seed"
@@ -46,6 +51,7 @@ done
 
 echo
 echo "done in $(( ($(date +%s) - start) / 60 )) min"
+# Validate all generated JSON result files against the schema to ensure integrity
 shopt -s nullglob
 files=(results/final/"${METHOD}"_*.json)
 if [ ${#files[@]} -gt 0 ]; then
